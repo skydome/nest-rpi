@@ -2,32 +2,42 @@ package main
 
 import (
 	"fmt"
-	"time"
-
-	"github.com/stianeikeland/go-rpio"
+	"github.com/warthog618/gpio"
 	"github.com/yaman/i2c"
+	"time"
 )
 
 func main() {
-	err := rpio.Open()
-
-	if nil != err {
-		fmt.Println("error occured :", err)
-	}
-	pin := rpio.Pin(10)
 
 	i2cbus := i2c.NewI2CBus(1)
-	for {
-		for pin.Read() == rpio.High {
-			text, err := i2cbus.ReadBytes(0x60, 400)
 
-			if err != nil {
-				fmt.Println("iinit errorr: ", err)
-			}
+	gpioErr := gpio.Open()
 
-			fmt.Println("how  many: ", text[0])
-			fmt.Println("text: ", text[0:])
-			time.Sleep(100 * time.Millisecond)
+	if gpioErr != nil {
+		fmt.Println("gpio init error: ", gpioErr)
+	}
+
+	defer gpio.Close()
+
+	pin := gpio.NewPin(gpio.J8p7)
+	pin.Input()
+
+	pin.Watch(gpio.EdgeRising, func(pin *gpio.Pin) {
+
+		text, err := i2cbus.ReadBytes(0x03, 4)
+
+		if err != nil {
+			fmt.Println("i2c read error: ", err)
 		}
+
+		fmt.Println("how many: ", text)
+	})
+
+	defer pin.Unwatch()
+
+	fmt.Println("Watching pin BCM 4 / PHY 7")
+
+	for {
+		time.Sleep(time.Minute)
 	}
 }
